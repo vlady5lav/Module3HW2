@@ -9,43 +9,65 @@ namespace ModuleHW
     public class PhoneBook<T> : IPhoneBook<T>
         where T : IContact
     {
-        private readonly IDictionary<CultureInfo, IList<T>> _lettersCollection;
+        private readonly ICultureIdentifier _cultureIdentifier;
+        private readonly IDictionary<CultureInfo, IList<T>> _identifiedCollection;
         private readonly IDictionary<CharTypes, IList<T>> _symbolsCollection;
-        private readonly ICultureService _cultureService;
+        private IList<T> _allList;
 
-        public PhoneBook(ICultureService cultureService)
+        public PhoneBook(ICultureIdentifier cultureIdentifier)
         {
-            _cultureService = cultureService;
+            _cultureIdentifier = cultureIdentifier;
 
-            _lettersCollection = new Dictionary<CultureInfo, IList<T>>
+            _cultureIdentifier.Add("uk-UA");
+            _cultureIdentifier.Add("ru-RU");
+            _cultureIdentifier.Add("en-US");
+
+            _identifiedCollection = new Dictionary<CultureInfo, IList<T>>();
+
+            foreach (var culture in _cultureIdentifier.GetCultureData())
             {
-                { CultureInfo.GetCultureInfo("ru-RU"), new List<T>() },
-                { CultureInfo.GetCultureInfo("en-US"), new List<T>() }
-            };
+                _identifiedCollection.Add(culture, new List<T>());
+            }
 
-            _symbolsCollection = new Dictionary<CharTypes, IList<T>>
+            _symbolsCollection = new Dictionary<CharTypes, IList<T>>()
             {
                 { CharTypes.Digit, new List<T>() },
-                { CharTypes.Symbol, new List<T>() }
+                { CharTypes.Symbol, new List<T>() },
             };
+
+            _allList = new List<T>();
         }
 
-        public IReadOnlyCollection<T> this[string key]
+        public IReadOnlyCollection<T> this[string str]
         {
             get
             {
-                var collection = GetCollection(key);
+                GeneralListBuilder(_identifiedCollection.Values);
+                GeneralListBuilder(_symbolsCollection.Values);
+                (_allList as List<T>).Sort((str1, str2) => str1.FullName.CompareTo(str2.FullName));
+
                 var result = new List<T>();
 
-                foreach (var contact in collection)
+                foreach (var contact in _allList)
                 {
-                    if (contact.FullName.StartsWith(key, StringComparison.InvariantCultureIgnoreCase))
+                    if (contact.FullName.StartsWith(str, StringComparison.InvariantCultureIgnoreCase))
                     {
                         result.Add(contact);
                     }
                 }
 
                 return result;
+            }
+        }
+
+        public void GeneralListBuilder(ICollection<IList<T>> dic)
+        {
+            foreach (var contacts in dic)
+            {
+                foreach (var contact in contacts as IList<T>)
+                {
+                    _allList.Add(contact);
+                }
             }
         }
 
@@ -57,10 +79,11 @@ namespace ModuleHW
             }
 
             var collection = GetCollection(contact.FullName);
+            (contact as Contact).Collection = _cultureIdentifier.GetCultureInfo(contact.FullName)?.Name;
 
             var position = GetPosition(contact.FullName, collection);
 
-            if (position != -1)
+            if (position > 0 && position < collection.Count)
             {
                 collection.Insert(position, contact);
             }
@@ -85,11 +108,11 @@ namespace ModuleHW
 
         public IList<T> GetCollection(string name)
         {
-            var cultureInfo = _cultureService.GetCultureInfo(name[0]);
+            var cultureInfo = _cultureIdentifier.GetCultureInfo(name);
 
             if (cultureInfo == null)
             {
-                if (Regex.IsMatch(name[0].ToString(), "[0-9]"))
+                if (Regex.IsMatch(name[0..].ToString(), "[0-9]") || (Regex.IsMatch(name[0].ToString(), "[+]") && Regex.IsMatch(name[1..].ToString(), "[0-9]")))
                 {
                     return _symbolsCollection[CharTypes.Digit];
                 }
@@ -99,12 +122,12 @@ namespace ModuleHW
                 }
             }
 
-            return _lettersCollection[cultureInfo];
+            return _identifiedCollection[cultureInfo];
         }
 
         IEnumerator<T> IEnumerable<T>.GetEnumerator()
         {
-            foreach (var collection in _lettersCollection)
+            foreach (var collection in _identifiedCollection)
             {
                 foreach (var contact in collection.Value)
                 {

@@ -7,7 +7,7 @@ namespace ModuleHW
         public void Run()
         {
             var serviceProvider = new ServiceCollection()
-                .AddTransient<ICultureService, CultureService>()
+                .AddTransient<ICultureIdentifier, CultureIdentifier>()
                 .AddTransient<IPhoneBook<IContact>, PhoneBook<IContact>>()
                 .AddTransient<App>()
                 .BuildServiceProvider();

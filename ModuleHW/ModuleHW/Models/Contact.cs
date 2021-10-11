@@ -6,7 +6,7 @@ namespace ModuleHW
     {
         public string FirstName { get; init; }
         public string LastName { get; init; }
-
+        public string Collection { get; set; }
         public string FullName
         {
             get
